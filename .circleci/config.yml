@@ -40,7 +40,7 @@ jobs:
       - run: pushd /tmp; wget https://github.com/protocolbuffers/protobuf/archive/v2.5.0.tar.gz; popd
       - run: pushd /tmp; tar xzf v2.5.0.tar.gz; popd
       - run: pushd /tmp; pushd ./protobuf-2.5.0; curl -L https://github.com/google/googletest/archive/release-1.5.0.tar.gz | tar zx; mv googletest-release-1.5.0 gtest; ./autogen.sh; ./configure && make && make check && make install && ldconfig; popd; popd
-      - run: mvn install:install-file -Dfile=/tmp/workspace/zookeeper-$ZK_BUILD_NUMBER-bin.jar -DgroupId=org.apache.zookeeper -DartifactId=zookeeper -Dversion=$ZK_BUILD_NUMBER -Dpackaging=jar
+      - run: mvn install:install-file -Dfile=/tmp/workspace/zookeeper/zookeeper-$ZK_BUILD_NUMBER-bin.jar -DgroupId=org.apache.zookeeper -DartifactId=zookeeper -Dversion=$ZK_BUILD_NUMBER -Dpackaging=jar
       - run: mvn install package dependency:go-offline -Pdist -Pnative -Drequire.snappy -Dbundle.snappy -Drequire.openssl -Dbundle.openssl -DskipTests=true -Dsnappy.lib=/usr/lib/x86_64-linux-gnu -Dopenssl.lib=/usr/lib/x86_64-linux-gnu -DskipTests -Dzookeeper.version=$ZK_BUILD_NUMBER
 
       - run: mkdir -p workspace/hadoop
