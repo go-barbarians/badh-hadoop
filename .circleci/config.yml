@@ -1,0 +1,49 @@
+# Java Maven CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-java/ for more details
+#
+version: 2
+jobs:
+  build:
+    docker:
+      # specify the version you desire here
+      - image: ubuntu:16.04
+      
+      # Specify service dependencies here if necessary
+      # CircleCI maintains a library of pre-built images
+      # documented at https://circleci.com/docs/2.0/circleci-images/
+      # - image: circleci/postgres:9.4
+
+    working_directory: ~/repo
+
+    environment:
+      # Customize the JVM maximum heap limit
+      MAVEN_OPTS: -Xmx3200m
+    
+    steps:
+      - checkout
+
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+          - v1-dependencies-{{ checksum "pom.xml" }}
+          # fallback to using the latest cache if no exact match is found
+          - v1-dependencies-
+
+      - run: sudo apt-get update && sudo apt-get install -y maven build-essential autoconf automake wget libtool cmake zlib1g-dev pkg-config libssl-dev libfuse-dev snappy libsnappy-dev autogen openjdk-8-jdk
+      - run: pushd /tmp; wget https://github.com/protocolbuffers/protobuf/archive/v2.5.0.tar.gz; popd
+      - run: pushd /tmp; tar xzf v2.5.0.tar.gz; popd
+      - run: pushd /tmp; pushd ./protobuf-2.5.0; curl -L https://github.com/google/googletest/archive/release-1.5.0.tar.gz | tar zx; mv googletest-release-1.5.0 gtest; ./autogen.sh; ./configure && make && make check && sudo make install && sudo ldconfig; popd; popd
+      - run: mvn install package dependency:go-offline -Pdist -Pnative -Drequire.snappy -Dbundle.snappy -Drequire.openssl -Dbundle.openssl -DskipTests=true -Dsnappy.lib=/usr/lib/x86_64-linux-gnu -Dopenssl.lib=/usr/lib/x86_64-linux-gnu -DskipTests
+
+      - save_cache:
+          paths:
+            - ~/.m2
+          key: v1-dependencies-{{ checksum "pom.xml" }}
+        
+      # run tests!
+      - run: mvn integration-test
+
+      # - store_artifacts:
+          # path: /home/circleci/repo/target/bin/apache-
+          # destination: badh-ignite-bin
