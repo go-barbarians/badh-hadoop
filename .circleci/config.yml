@@ -36,7 +36,7 @@ jobs:
       - run: pushd /tmp; wget https://github.com/protocolbuffers/protobuf/archive/v2.5.0.tar.gz; popd
       - run: pushd /tmp; tar xzf v2.5.0.tar.gz; popd
       - run: pushd /tmp; pushd ./protobuf-2.5.0; curl -L https://github.com/google/googletest/archive/release-1.5.0.tar.gz | tar zx; mv googletest-release-1.5.0 gtest; ./autogen.sh; ./configure && make && make check && make install && ldconfig; popd; popd
-      - run: mvn install package dependency:go-offline -Pdist -Pnative -Drequire.snappy -Dbundle.snappy -Drequire.openssl -Dbundle.openssl -DskipTests=true -Dsnappy.lib=/usr/lib/x86_64-linux-gnu -Dopenssl.lib=/usr/lib/x86_64-linux-gnu -DskipTests
+      - run: mvn install package dependency:go-offline -Pdist -Pnative -Drequire.snappy -Dbundle.snappy -Drequire.openssl -Dbundle.openssl -DskipTests=true -Dsnappy.lib=/usr/lib/x86_64-linux-gnu -Dopenssl.lib=/usr/lib/x86_64-linux-gnu -DskipTests -Dzookeeper.version=3.5.5-badh1
 
       - save_cache:
           paths:
