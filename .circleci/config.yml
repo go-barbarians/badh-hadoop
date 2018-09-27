@@ -19,6 +19,7 @@ jobs:
     environment:
       # Customize the JVM maximum heap limit
       MAVEN_OPTS: -Xmx3200m
+      ZK_BUILD_NUMBER: 3.5.5-badh1
     
     steps:
       - run: apt-get update && apt-get upgrade -y && apt-get install -y git curl
@@ -28,14 +29,19 @@ jobs:
       # Download and cache dependencies
       - restore_cache:
           keys:
+          - v1-dependencies-{{ checksum "pom.xml" }}
           # fallback to using the latest cache if no exact match is found
           - v1-dependencies-
+
+      - attach_workspace:
+          at: /tmp/workspace
 
       - run: apt-get install -y maven build-essential autoconf automake wget libtool cmake zlib1g-dev pkg-config libssl-dev libfuse-dev snappy libsnappy-dev autogen openjdk-8-jdk
       - run: pushd /tmp; wget https://github.com/protocolbuffers/protobuf/archive/v2.5.0.tar.gz; popd
       - run: pushd /tmp; tar xzf v2.5.0.tar.gz; popd
       - run: pushd /tmp; pushd ./protobuf-2.5.0; curl -L https://github.com/google/googletest/archive/release-1.5.0.tar.gz | tar zx; mv googletest-release-1.5.0 gtest; ./autogen.sh; ./configure && make && make check && make install && ldconfig; popd; popd
-      - run: mvn install package dependency:go-offline -Pdist -Pnative -Drequire.snappy -Dbundle.snappy -Drequire.openssl -Dbundle.openssl -DskipTests=true -Dsnappy.lib=/usr/lib/x86_64-linux-gnu -Dopenssl.lib=/usr/lib/x86_64-linux-gnu -DskipTests -Dzookeeper.version=3.5.5-badh1
+      - run: mvn install:install-file -Dfile=/tmp/workspace/zookeeper-$ZK_BUILD_NUMBER-bin.jar -DgroupId=org.apache.zookeeper -DartifactId=zookeeper -Dversion=$ZK_BUILD_NUMBER -Dpackaging=jar
+      - run: mvn install package dependency:go-offline -Pdist -Pnative -Drequire.snappy -Dbundle.snappy -Drequire.openssl -Dbundle.openssl -DskipTests=true -Dsnappy.lib=/usr/lib/x86_64-linux-gnu -Dopenssl.lib=/usr/lib/x86_64-linux-gnu -DskipTests -Dzookeeper.version=$ZK_BUILD_NUMBER
 
       - save_cache:
           paths:
@@ -44,6 +50,8 @@ jobs:
         
       # run tests!
       # - run: mvn integration-test
+
+      - persist_to_workspace:
 
       # - store_artifacts:
           # path: /home/circleci/repo/target/bin/apache-
