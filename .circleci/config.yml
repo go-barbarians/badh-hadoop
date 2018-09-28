@@ -46,7 +46,7 @@ jobs:
       - run: aws s3 cp s3://mvn.barbarians.io/zookeeper-$ZK_BUILD_NUMBER-test.jar /tmp
       - run: mvn install:install-file -Dfile=/tmp/zookeeper-$ZK_BUILD_NUMBER-bin.jar -DgroupId=org.apache.zookeeper -DartifactId=zookeeper -Dversion=$ZK_BUILD_NUMBER -Dpackaging=jar
       - run: mvn install:install-file -Dfile=/tmp/zookeeper-$ZK_BUILD_NUMBER-test.jar -DgroupId=org.apache.zookeeper -DartifactId=zookeeper -Dversion=$ZK_BUILD_NUMBER -Dclassifier=tests -Dpackaging=test-jar
-      - run: mvn install package dependency:go-offline -Pdist -Pnative -Drequire.snappy -Dbundle.snappy -Drequire.openssl -Dbundle.openssl -DskipTests=true -Dsnappy.lib=/usr/lib/x86_64-linux-gnu -Dopenssl.lib=/usr/lib/x86_64-linux-gnu -DskipTests -Dzookeeper.version=$ZK_BUILD_NUMBER -Dtar -Dhadoop.version=$HADOOP_BUILD_NUMBER
+      - run: mvn install package dependency:go-offline -Pdist -Pnative -Drequire.snappy -Dbundle.snappy -Drequire.openssl -Dbundle.openssl -DskipTests=true -Dsnappy.lib=/usr/lib/x86_64-linux-gnu -Dopenssl.lib=/usr/lib/x86_64-linux-gnu -DskipTests -Dmaven.javadoc.skip=true -Dzookeeper.version=$ZK_BUILD_NUMBER -Dtar -Dhadoop.version=$HADOOP_BUILD_NUMBER
 
       - run: aws s3 cp --recursive ~/.m2 s3://mvn.barbarians.io/hadoop/m2
       - run: aws s3 cp /root/repo/hadoop-dist/target/hadoop-$HADOOP_BUILD_NUMBER.tar.gz s3://mvn.barbarians.io
