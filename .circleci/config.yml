@@ -28,11 +28,11 @@ jobs:
       - checkout
 
       # Download and cache dependencies
-      #- restore_cache:
-      #    keys:
-      #    - v1-dependencies-{{ checksum "pom.xml" }}
-      #    # fallback to using the latest cache if no exact match is found
-      #    - v1-dependencies-
+      - restore_cache:
+          keys:
+          - v1-dependencies-{{ checksum "pom.xml" }}
+          # fallback to using the latest cache if no exact match is found
+          - v1-dependencies-
 
       - run: apt-get install -y maven build-essential autoconf automake wget libtool cmake zlib1g-dev pkg-config libssl-dev libfuse-dev snappy libsnappy-dev autogen openjdk-8-jdk python-pip
       - run: pip install awscli
@@ -46,15 +46,15 @@ jobs:
       - run: aws s3 cp s3://mvn.barbarians.io/zookeeper-$ZK_BUILD_NUMBER-test.jar /tmp
       - run: mvn install:install-file -Dfile=/tmp/zookeeper-$ZK_BUILD_NUMBER-bin.jar -DgroupId=org.apache.zookeeper -DartifactId=zookeeper -Dversion=$ZK_BUILD_NUMBER -Dpackaging=jar
       - run: mvn install:install-file -Dfile=/tmp/zookeeper-$ZK_BUILD_NUMBER-test.jar -DgroupId=org.apache.zookeeper -DartifactId=zookeeper -Dversion=$ZK_BUILD_NUMBER -Dclassifier=tests -Dpackaging=test-jar
-      - run: mvn install package dependency:go-offline -Pdist -Pnative -Drequire.snappy -Dbundle.snappy -Drequire.openssl -Dbundle.openssl -DskipTests=true -Dsnappy.lib=/usr/lib/x86_64-linux-gnu -Dopenssl.lib=/usr/lib/x86_64-linux-gnu -DskipTests -Dmaven.javadoc.skip=true -Dzookeeper.version=$ZK_BUILD_NUMBER -Dtar -Dhadoop.version=$HADOOP_BUILD_NUMBER
+      - run: mvn install package dependency:go-offline -Pdist -DskipTests -Dmaven.javadoc.skip=true -Dzookeeper.version=$ZK_BUILD_NUMBER -Dtar -Dhadoop.version=$HADOOP_BUILD_NUMBER
 
       - run: aws s3 cp --recursive ~/.m2 s3://mvn.barbarians.io/hadoop/m2
       - run: aws s3 cp /root/repo/hadoop-dist/target/hadoop-$HADOOP_BUILD_NUMBER.tar.gz s3://mvn.barbarians.io
 
-      #- save_cache:
-      #    paths:
-      #      - ~/.m2
-      #    key: v1-dependencies-{{ checksum "pom.xml" }}
+      - save_cache:
+          paths:
+            - ~/.m2
+          key: v1-dependencies-{{ checksum "pom.xml" }}
         
       # run tests!
       # - run: mvn integration-test
