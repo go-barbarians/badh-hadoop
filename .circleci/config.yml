@@ -1,0 +1,64 @@
+# Java Maven CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-java/ for more details
+#
+version: 2
+jobs:
+  build:
+    docker:
+      # specify the version you desire here
+      - image: ubuntu:16.04
+      
+      # Specify service dependencies here if necessary
+      # CircleCI maintains a library of pre-built images
+      # documented at https://circleci.com/docs/2.0/circleci-images/
+      # - image: circleci/postgres:9.4
+
+    working_directory: ~/repo
+
+    environment:
+      # Customize the JVM maximum heap limit
+      MAVEN_OPTS: -Xmx3200m
+      ZK_BUILD_NUMBER: 3.5.5-badh1
+      HADOOP_BUILD_NUMBER: 3.1.2-badh1
+    
+    steps:
+      - run: apt-get update && apt-get upgrade -y && apt-get install -y git curl
+
+      - checkout
+
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+          - v1-dependencies-{{ checksum "pom.xml" }}
+          # fallback to using the latest cache if no exact match is found
+          - v1-dependencies-
+
+      - run: apt-get install -y maven build-essential autoconf automake wget libtool cmake zlib1g-dev pkg-config libssl-dev libfuse-dev snappy libsnappy-dev autogen openjdk-8-jdk python-pip
+      - run: pip install awscli
+      - run: aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+      - run: aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+      - run: aws configure set default.region eu-west-1
+      - run: pushd /tmp; aws s3 cp s3://mvn.barbarians.io/build-deps/protoc/v2.5.0.tar.gz .; popd
+      - run: pushd /tmp; tar xzf v2.5.0.tar.gz; popd
+      - run: pushd /tmp; pushd ./protobuf-2.5.0; aws s3 cp s3://mvn.barbarians.io/build-deps/googletest/release-1.5.0.tar.gz .; cat release-1.5.0.tar.gz | tar zx; mv googletest-release-1.5.0 gtest; ./autogen.sh; ./configure && make && make check && make install && ldconfig; popd; popd
+      - run: aws s3 cp s3://mvn.barbarians.io/zookeeper-$ZK_BUILD_NUMBER-bin.jar /tmp
+      - run: aws s3 cp s3://mvn.barbarians.io/zookeeper-$ZK_BUILD_NUMBER-test.jar /tmp
+      - run: mvn install:install-file -Dfile=/tmp/zookeeper-$ZK_BUILD_NUMBER-bin.jar -DgroupId=org.apache.zookeeper -DartifactId=zookeeper -Dversion=$ZK_BUILD_NUMBER -Dpackaging=jar
+      - run: mvn install:install-file -Dfile=/tmp/zookeeper-$ZK_BUILD_NUMBER-test.jar -DgroupId=org.apache.zookeeper -DartifactId=zookeeper -Dversion=$ZK_BUILD_NUMBER -Dclassifier=tests -Dpackaging=test-jar
+      - run: mvn install package dependency:go-offline -Pdist -Pnative -Drequire.snappy -Dbundle.snappy -Drequire.openssl -Dbundle.openssl -DskipTests=true -Dsnappy.lib=/usr/lib/x86_64-linux-gnu -Dopenssl.lib=/usr/lib/x86_64-linux-gnu -DskipTests -Dzookeeper.version=$ZK_BUILD_NUMBER -Dtar -Dhadoop.version=$HADOOP_BUILD_NUMBER
+
+      - run: aws s3 cp --recursive ~/.m2 s3://mvn.barbarians.io/hadoop/m2
+      - run: aws s3 cp /root/repo/hadoop-dist/target/hadoop-$HADOOP_BUILD_NUMBER.tar.gz s3://mvn.barbarians.io
+
+      - save_cache:
+          paths:
+            - ~/.m2
+          key: v1-dependencies-{{ checksum "pom.xml" }}
+        
+      # run tests!
+      # - run: mvn integration-test
+
+      # - store_artifacts:
+          # path: /home/circleci/repo/target/bin/apache-
+          # destination: badh-hadoop-bin
