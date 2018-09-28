@@ -80,7 +80,7 @@ public class TestSecureRegistry extends AbstractSecureRegistryTest {
     SaslServerCallbackHandler saslServerCallbackHandler =
         new SaslServerCallbackHandler(
             javax.security.auth.login.Configuration.getConfiguration());
-    Login login = new Login(serverSection, saslServerCallbackHandler);
+    Login login = new Login(serverSection, saslServerCallbackHandler, new ZKConfig());
     try {
       login.startThreadIfNeeded();
     } finally {
