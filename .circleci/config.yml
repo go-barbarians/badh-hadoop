@@ -51,10 +51,10 @@ jobs:
       - run: aws s3 cp --recursive ~/.m2 s3://mvn.barbarians.io/hadoop/m2
       - run: aws s3 cp /root/repo/hadoop-dist/target/hadoop-$HADOOP_BUILD_NUMBER.tar.gz s3://mvn.barbarians.io
 
-      - save_cache:
-          paths:
-            - ~/.m2
-          key: v1-dependencies-{{ checksum "pom.xml" }}
+      #- save_cache:
+      #    paths:
+      #      - ~/.m2
+      #    key: v1-dependencies-{{ checksum "pom.xml" }}
         
       # run tests!
       # - run: mvn integration-test
