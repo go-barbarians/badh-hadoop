@@ -39,16 +39,15 @@ jobs:
       - run: aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
       - run: aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
       - run: aws configure set default.region eu-west-1
-      - run: pushd /tmp; wget https://github.com/protocolbuffers/protobuf/archive/v2.5.0.tar.gz; popd
+      - run: pushd /tmp; aws s3 cp s3://mvn.barbarians.io/build-deps/protoc/v2.5.0.tar.gz .; popd
       - run: pushd /tmp; tar xzf v2.5.0.tar.gz; popd
-      - run: pushd /tmp; pushd ./protobuf-2.5.0; curl -L https://github.com/google/googletest/archive/release-1.5.0.tar.gz | tar zx; mv googletest-release-1.5.0 gtest; ./autogen.sh; ./configure && make && make check && make install && ldconfig; popd; popd
+      - run: pushd /tmp; pushd ./protobuf-2.5.0; aws s3 cp s3://mvn.barbarians.io/build-deps/googletest/release-1.5.0.tar.gz .; cat release-1.5.0.tar.gz | tar zx; mv googletest-release-1.5.0 gtest; ./autogen.sh; ./configure && make && make check && make install && ldconfig; popd; popd
       - run: aws s3 cp s3://mvn.barbarians.io/zookeeper-$ZK_BUILD_NUMBER-bin.jar /tmp
       - run: aws s3 cp s3://mvn.barbarians.io/zookeeper-$ZK_BUILD_NUMBER-test.jar /tmp
       - run: mvn install:install-file -Dfile=/tmp/zookeeper-$ZK_BUILD_NUMBER-bin.jar -DgroupId=org.apache.zookeeper -DartifactId=zookeeper -Dversion=$ZK_BUILD_NUMBER -Dpackaging=jar
       - run: mvn install:install-file -Dfile=/tmp/zookeeper-$ZK_BUILD_NUMBER-test.jar -DgroupId=org.apache.zookeeper -DartifactId=zookeeper -Dversion=$ZK_BUILD_NUMBER -Dclassifier=tests -Dpackaging=test-jar
       - run: mvn install package dependency:go-offline -Pdist -Pnative -Drequire.snappy -Dbundle.snappy -Drequire.openssl -Dbundle.openssl -DskipTests=true -Dsnappy.lib=/usr/lib/x86_64-linux-gnu -Dopenssl.lib=/usr/lib/x86_64-linux-gnu -DskipTests -Dzookeeper.version=$ZK_BUILD_NUMBER -Dtar -Dhadoop.version=$HADOOP_BUILD_NUMBER
 
-      - run: mkdir -p workspace/hadoop
       - run: aws s3 cp --recursive ~/.m2 s3://mvn.barbarians.io/hadoop/m2
       - run: aws s3 cp /root/repo/hadoop-dist/target/hadoop-2.8.4-badh1.tar.gz s3://mvn.barbarians.io
 
