@@ -25,6 +25,7 @@ import org.apache.hadoop.registry.client.impl.zk.CuratorService;
 import org.apache.hadoop.registry.client.impl.zk.RegistrySecurity;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.Login;
+import org.apache.zookeeper.common.ZKConfig;
 import org.apache.zookeeper.server.ZooKeeperSaslServer;
 import org.apache.zookeeper.server.auth.SaslServerCallbackHandler;
 import org.junit.After;
