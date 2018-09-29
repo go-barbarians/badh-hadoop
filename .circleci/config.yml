@@ -48,7 +48,8 @@ jobs:
       - run: mvn install:install-file -Dfile=/tmp/zookeeper-$ZK_BUILD_NUMBER-test.jar -DgroupId=org.apache.zookeeper -DartifactId=zookeeper -Dversion=$ZK_BUILD_NUMBER -Dclassifier=tests -Dpackaging=test-jar
       - run: mvn install package dependency:go-offline -Pdist -DskipTests -Dmaven.javadoc.skip=true -Dzookeeper.version=$ZK_BUILD_NUMBER -Dtar -Dhadoop.version=$HADOOP_BUILD_NUMBER
 
-      - run: aws s3 cp --recursive ~/.m2 s3://mvn.barbarians.io/hadoop/m2
+      - run: tar -czf m2.tar.gz -C /tmp .m2
+      - run: aws s3 cp ~/tmp/m2.tar.gz s3://mvn.barbarians.io/hadoop
       - run: aws s3 cp /root/repo/hadoop-dist/target/hadoop-$HADOOP_BUILD_NUMBER.tar.gz s3://mvn.barbarians.io
 
       - save_cache:
