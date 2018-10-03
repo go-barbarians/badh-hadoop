@@ -39,7 +39,7 @@ function mapred_subcommand_streaming
   oldifs=${IFS}
   IFS=:
   for jarname in ${CLASSPATH}; do
-    if [[ "${jarname}" =~ hadoop-streaming-[0-9] ]]; then
+    if [[ "${jarname}" = *hadoop-streaming-[0-9]* ]]; then
       HADOOP_SUBCMD_ARGS=("${jarname}" "${HADOOP_SUBCMD_ARGS[@]}")
       break
     fi
