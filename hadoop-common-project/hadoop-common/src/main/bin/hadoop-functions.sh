@@ -390,10 +390,10 @@ function hadoop_generic_columnprinter
     ((numcols=numcols-5))
   fi
 
-  mkfifo reader.fifo
+  mkfifo /tmp/reader.fifo
   (for text in "${input[@]}"; do
     echo "${text}"
-  done | sort > reader.fifo)
+  done | sort > /tmp/reader.fifo) &
 
   while read -r line; do
     tmpa[${counter}]=${line}
@@ -403,8 +403,8 @@ function hadoop_generic_columnprinter
     if [[ ${#option} -gt ${maxoptsize} ]]; then
       maxoptsize=${#option}
     fi
-  done < reader.fifo
-  rm -f reader.fifo
+  done < /tmp/reader.fifo
+  rm -f /tmp/reader.fifo
 
   i=0
   ((foldsize=numcols-maxoptsize))
@@ -427,14 +427,14 @@ function hadoop_generic_columnprinter
       giventext=${cmdtype}
     fi
 
-    mkfifo reader.fifo
-    (echo "${giventext}"| fold -s -w ${foldsize} > reader.fifo)
+    mkfifo /tmp/reader.fifo
+    (echo "${giventext}"| fold -s -w ${foldsize} > /tmp/reader.fifo) &
 
     while read -r line; do
       printf "%-${maxoptsize}s   %-s\n" "${option}" "${line}"
       option=" "
-    done < reader.fifo
-    rm -f reader.fifo
+    done < /tmp/reader.fifo
+    rm -f /tmp/reader.fifo
     ((i=i+1))
   done
 }
