@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -65,7 +63,8 @@ hadoop_error "WARNING: Attempting to execute replacement \"hdfs --workers --daem
 # we're going to turn this into
 #  hdfs --workers --daemon (start|stop) (rest of options)
 #
-for (( i = 0; i < ${#HADOOP_USER_PARAMS[@]}; i++ ))
+i=$((0))
+while [ "$(( i++ ))" -le ${#HADOOP_USER_PARAMS[@]} ]
 do
   if [[ "${HADOOP_USER_PARAMS[$i]}" =~ ^start$ ]] ||
      [[ "${HADOOP_USER_PARAMS[$i]}" =~ ^stop$ ]] ||

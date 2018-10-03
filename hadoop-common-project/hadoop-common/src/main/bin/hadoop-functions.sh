@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -16,9 +15,9 @@
 
 # we need to declare this globally as an array, which can only
 # be done outside of a function
-declare -a HADOOP_SUBCMD_USAGE
-declare -a HADOOP_OPTION_USAGE
-declare -a HADOOP_SUBCMD_USAGE_TYPES
+typeset HADOOP_SUBCMD_USAGE
+typeset HADOOP_OPTION_USAGE
+typeset HADOOP_SUBCMD_USAGE_TYPES
 
 ## @description  Print a message to stderr
 ## @audience     public
@@ -84,9 +83,10 @@ function hadoop_abs
 ## @replaceable  no
 function hadoop_delete_entry
 {
-  if [[ ${!1} =~ \ ${2}\  ]] ; then
-    hadoop_debug "Removing ${2} from ${1}"
-    eval "${1}"=\""${!1// ${2} }"\"
+  nameref entry=$1
+  if [[ ${1} = *\ ${2}\ * ]] ; then
+    hadoop_debug "Removing ${2} from ${entry}"
+    eval "${!entry}"=\""${entry// ${2} }"\"
   fi
 }
 
@@ -96,10 +96,11 @@ function hadoop_delete_entry
 ## @replaceable  no
 function hadoop_add_entry
 {
-  if [[ ! ${!1} =~ \ ${2}\  ]] ; then
-    hadoop_debug "Adding ${2} to ${1}"
+  nameref entry=$1
+  if [[ ! ${entry} = "*${2}*" ]] ; then
+    hadoop_debug "Adding ${2} to ${entry}"
     #shellcheck disable=SC2140
-    eval "${1}"=\""${!1} ${2} "\"
+    eval "${!entry}"=\""${entry} ${2} "\"
   fi
 }
 
@@ -113,7 +114,7 @@ function hadoop_verify_entry
   # this unfortunately can't really be tested by bats. :(
   # so if this changes, be aware that unit tests effectively
   # do this function in them
-  [[ ${!1} =~ \ ${2}\  ]]
+  [[ ${1} = *\ ${2}\ * ]]
 }
 
 ## @description  Check if an array has a given value
@@ -151,15 +152,17 @@ function hadoop_array_contains
 ## @param        appendstring
 function hadoop_add_array_param
 {
-  declare arrname=$1
+
+  nameref arrname=$1
   declare add=$2
 
-  declare arrref="${arrname}[@]"
-  declare array=("${!arrref}")
+  typeset arrref="${arrname}[@]"
+  #nameref arrref="${!arrname[@]}"
+  set -A array "${!arrref}"
 
   if ! hadoop_array_contains "${add}" "${array[@]}"; then
     #shellcheck disable=SC1083,SC2086
-    eval ${arrname}=\(\"\${array[@]}\" \"${add}\" \)
+    eval ${!arrname}=\(\"\${array[@]}\" \"${add}\" \)
     hadoop_debug "$1 accepted $2"
   else
     hadoop_debug "$1 declined $2"
@@ -174,9 +177,9 @@ function hadoop_add_array_param
 ## @param        arrayvar
 function hadoop_sort_array
 {
-  declare arrname=$1
-  declare arrref="${arrname}[@]"
-  declare array=("${!arrref}")
+  nameref arrname=$1
+  nameref arrref="${arrname}[@]"
+  typeset array="${!arrref}"
   declare oifs
 
   declare globstatus
@@ -188,7 +191,7 @@ function hadoop_sort_array
   oifs=${IFS}
 
   # shellcheck disable=SC2034
-  IFS=$'\n' sa=($(sort <<<"${array[*]}"))
+  IFS=$'\n' sa=$(sort <<<"${array[*]}")
 
   # shellcheck disable=SC1083
   eval "${arrname}"=\(\"\${sa[@]}\"\)
@@ -274,8 +277,8 @@ function hadoop_uservar_su
 
   declare uprogram
   declare ucommand
-  declare uvar
-  declare svar
+  nameref uvar
+  nameref svar
 
   if hadoop_privilege_check; then
     uvar=$(hadoop_build_custom_subcmd_var "${program}" "${command}" USER)
@@ -308,9 +311,9 @@ function hadoop_uservar_su
 ## @param        subcommanddesc
 function hadoop_add_subcommand
 {
-  declare subcmd=$1
-  declare subtype=$2
-  declare text=$3
+  declare subcmd="$1"
+  declare subtype="$2"
+  declare text="$3"
 
   hadoop_debug "${subcmd} as a ${subtype}"
 
@@ -360,7 +363,7 @@ function hadoop_generic_columnprinter
 {
   declare reqtype=$1
   shift
-  declare -a input=("$@")
+  declare -a input="$@"
   declare -i i=0
   declare -i counter=0
   declare line
@@ -381,11 +384,16 @@ function hadoop_generic_columnprinter
   fi
 
   if [[ -z "${numcols}"
-     || ! "${numcols}" =~ ^[0-9]+$ ]]; then
+     || ! "${numcols}" = *@^[0-9]+$* ]]; then
     numcols=75
   else
     ((numcols=numcols-5))
   fi
+
+  mkfifo reader.fifo
+  (for text in "${input[@]}"; do
+    echo "${text}"
+  done | sort > reader.fifo)
 
   while read -r line; do
     tmpa[${counter}]=${line}
@@ -395,9 +403,8 @@ function hadoop_generic_columnprinter
     if [[ ${#option} -gt ${maxoptsize} ]]; then
       maxoptsize=${#option}
     fi
-  done < <(for text in "${input[@]}"; do
-    echo "${text}"
-  done | sort)
+  done < reader.fifo
+  rm -f reader.fifo
 
   i=0
   ((foldsize=numcols-maxoptsize))
@@ -420,10 +427,14 @@ function hadoop_generic_columnprinter
       giventext=${cmdtype}
     fi
 
+    mkfifo reader.fifo
+    (echo "${giventext}"| fold -s -w ${foldsize} > reader.fifo)
+
     while read -r line; do
       printf "%-${maxoptsize}s   %-s\n" "${option}" "${line}"
       option=" "
-    done < <(echo "${giventext}"| fold -s -w ${foldsize})
+    done < reader.fifo
+    rm -f reader.fifo
     ((i=i+1))
   done
 }
@@ -507,19 +518,19 @@ function hadoop_deprecate_envvar
 {
   local oldvar=$1
   local newvar=$2
-  local oldval=${!oldvar}
-  local newval=${!newvar}
+  local oldval=${oldvar}
+  local newval=${newvar}
 
   if [[ -n "${oldval}" ]]; then
     hadoop_error "WARNING: ${oldvar} has been replaced by ${newvar}. Using value of ${oldvar}."
     # shellcheck disable=SC2086
-    eval ${newvar}=\"${oldval}\"
+    eval ${newvar}="${oldval}"
 
     # shellcheck disable=SC2086
     newval=${oldval}
 
     # shellcheck disable=SC2086
-    eval ${newvar}=\"${newval}\"
+    eval ${newvar}="${newval}"
   fi
 }
 
@@ -530,7 +541,7 @@ function hadoop_deprecate_envvar
 ## @param        var
 function hadoop_using_envvar
 {
-  local var=$1
+  nameref var=$1
   local val=${!var}
 
   if [[ -n "${val}" ]]; then
@@ -764,7 +775,7 @@ function hadoop_shellprofiles_init
 
   for i in ${HADOOP_SHELL_PROFILES}
   do
-    if declare -F _${i}_hadoop_init >/dev/null ; then
+    if declare -f _${i}_hadoop_init >/dev/null ; then
        hadoop_debug "Profiles: ${i} init"
        # shellcheck disable=SC2086
        _${i}_hadoop_init
@@ -782,7 +793,7 @@ function hadoop_shellprofiles_classpath
 
   for i in ${HADOOP_SHELL_PROFILES}
   do
-    if declare -F _${i}_hadoop_classpath >/dev/null ; then
+    if declare -f _${i}_hadoop_classpath >/dev/null ; then
        hadoop_debug "Profiles: ${i} classpath"
        # shellcheck disable=SC2086
        _${i}_hadoop_classpath
@@ -800,7 +811,7 @@ function hadoop_shellprofiles_nativelib
 
   for i in ${HADOOP_SHELL_PROFILES}
   do
-    if declare -F _${i}_hadoop_nativelib >/dev/null ; then
+    if declare -f _${i}_hadoop_nativelib >/dev/null ; then
        hadoop_debug "Profiles: ${i} nativelib"
        # shellcheck disable=SC2086
        _${i}_hadoop_nativelib
@@ -818,7 +829,7 @@ function hadoop_shellprofiles_finalize
 
   for i in ${HADOOP_SHELL_PROFILES}
   do
-    if declare -F _${i}_hadoop_finalize >/dev/null ; then
+    if declare -f _${i}_hadoop_finalize >/dev/null ; then
        hadoop_debug "Profiles: ${i} finalize"
        # shellcheck disable=SC2086
        _${i}_hadoop_finalize
@@ -892,7 +903,7 @@ function hadoop_basic_init
   # if for some reason the shell doesn't have $USER defined
   # (e.g., ssh'd in to execute a command)
   # let's get the effective username and use that
-  USER=${USER:-$(id -nu)}
+  USER=${USER:-$(whoami)}
   HADOOP_IDENT_STRING=${HADOOP_IDENT_STRING:-$USER}
   HADOOP_LOG_DIR=${HADOOP_LOG_DIR:-"${HADOOP_HOME}/logs"}
   HADOOP_LOGFILE=${HADOOP_LOGFILE:-hadoop.log}
@@ -1048,14 +1059,15 @@ function hadoop_connect_to_hosts_without_pdsh
 {
   # shellcheck disable=SC2124
   local params="$@"
-  local workers=(${HADOOP_WORKER_NAMES})
-  for (( i = 0; i < ${#workers[@]}; i++ ))
+  set -A workers ${HADOOP_WORKER_NAMES}
+  iterator=$((0))
+  while [ "$(( iterator++ ))" -le ${#workers[@]} ]
   do
     if (( i != 0 && i % HADOOP_SSH_PARALLEL == 0 )); then
       wait
     fi
     # shellcheck disable=SC2086
-    hadoop_actual_ssh "${workers[$i]}" ${params} &
+    hadoop_actual_ssh "${workers[$iterator]}" ${params} &
   done
   wait
 }
@@ -1071,21 +1083,22 @@ function hadoop_common_worker_mode_execute
   # input should be the command line as given by the user
   # in the form of an array
   #
-  local argv=("$@")
+  set -A argv $@
 
   # if --workers is still on the command line, remove it
   # to prevent loops
   # Also remove --hostnames and --hosts along with arg values
   local argsSize=${#argv[@]};
-  for (( i = 0; i < argsSize; i++ ))
+  iterator=$((0))
+  while [ "$(( iterator++ ))" -le argsSize ]
   do
-    if [[ "${argv[$i]}" =~ ^--workers$ ]]; then
-      unset argv[$i]
-    elif [[ "${argv[$i]}" =~ ^--hostnames$ ]] ||
-      [[ "${argv[$i]}" =~ ^--hosts$ ]]; then
-      unset argv[$i];
+    if [[ "${argv[$iterator]}" = *@^--workers$* ]]; then
+      unset argv[$iterator]
+    elif [[ "${argv[$iterator]}" = *@^--hostnames$* ]] ||
+      [[ "${argv[$iterator]}" = *@^--hosts$* ]]; then
+      unset argv[$iterator];
       let i++;
-      unset argv[$i];
+      unset argv[$iterator];
     fi
   done
   if [[ ${QATESTMODE} = true ]]; then
@@ -1108,7 +1121,7 @@ function hadoop_validate_classname
   local class=$1
   shift 1
 
-  if [[ ! ${class} =~ \. ]]; then
+  if [[ ! ${class} = *\.* ]]; then
     # assuming the arg is typo of command if it does not conatain ".".
     # class belonging to no package is not allowed as a result.
     hadoop_error "ERROR: ${class} is not COMMAND nor fully qualified CLASSNAME."
@@ -1137,16 +1150,17 @@ function hadoop_add_param
   # different syntaxes, just so long as they are space
   # delimited
   #
-  if [[ ! ${!1} =~ $2 ]] ; then
+  nameref key=$1
+  if [[ ! $key = *$2* ]] ; then
     #shellcheck disable=SC2140
-    eval "$1"="'${!1} $3'"
-    if [[ ${!1:0:1} = ' ' ]]; then
+    eval "${!key}"="'${key} $3'"
+    if [[ ${!key:0:1} = ' ' ]]; then
       #shellcheck disable=SC2140
-      eval "$1"="'${!1# }'"
+      eval "${!key}"="'${!key# }'"
     fi
-    hadoop_debug "$1 accepted $3"
+    hadoop_debug "$key accepted $3"
   else
-    hadoop_debug "$1 declined $3"
+    hadoop_debug "$key declined $3"
   fi
 }
 
@@ -1180,33 +1194,35 @@ function hadoop_add_classpath
   #
   # for wildcard at end, we can
   # at least check the dir exists
-  if [[ $1 =~ ^.*\*$ ]]; then
+  local targetcp=$1
+
+  if [[ $targetcp = *\** ]]; then
     local mp
-    mp=$(dirname "$1")
+    mp=$(dirname "$targetcp")
     if [[ ! -d "${mp}" ]]; then
-      hadoop_debug "Rejected CLASSPATH: $1 (not a dir)"
+      hadoop_debug "Rejected CLASSPATH: $targetcp (not a dir)"
       return 1
     fi
 
     # no wildcard in the middle, so check existence
     # (doesn't matter *what* it is)
-  elif [[ ! $1 =~ ^.*\*.*$ ]] && [[ ! -e "$1" ]]; then
-    hadoop_debug "Rejected CLASSPATH: $1 (does not exist)"
+  elif [[ ! $targetcp = *\** ]] && [[ ! -e "$targetcp" ]]; then
+    hadoop_debug "Rejected CLASSPATH: $targetcp (does not exist)"
     return 1
   fi
   if [[ -z "${CLASSPATH}" ]]; then
     CLASSPATH=$1
-    hadoop_debug "Initial CLASSPATH=$1"
-  elif [[ ":${CLASSPATH}:" != *":$1:"* ]]; then
+    hadoop_debug "Initial CLASSPATH=$targetcp"
+  elif [[ ":${CLASSPATH}:" != *":$targetcp:"* ]]; then
     if [[ "$2" = "before" ]]; then
-      CLASSPATH="$1:${CLASSPATH}"
-      hadoop_debug "Prepend CLASSPATH: $1"
+      CLASSPATH="$targetcp:${CLASSPATH}"
+      hadoop_debug "Prepend CLASSPATH: $targetcp"
     else
-      CLASSPATH+=:$1
-      hadoop_debug "Append CLASSPATH: $1"
+      CLASSPATH="$CLASSPATH:$targetcp"
+      hadoop_debug "Append CLASSPATH: $targetcp"
     fi
   else
-    hadoop_debug "Dupe CLASSPATH: $1"
+    hadoop_debug "Dupe CLASSPATH: $targetcp"
   fi
   return 0
 }
@@ -1230,23 +1246,24 @@ function hadoop_add_colonpath
 {
   # this is CLASSPATH, JLP, etc but with dedupe but no
   # other checking
-  if [[ -d "${2}" ]] && [[ ":${!1}:" != *":$2:"* ]]; then
-    if [[ -z "${!1}" ]]; then
+  nameref envvar=$1
+  if [[ -d "${2}" ]] && [[ ":${envvar}:" != *":$2:"* ]]; then
+    if [[ -z "${envvar}" ]]; then
       # shellcheck disable=SC2086
-      eval $1="'$2'"
-      hadoop_debug "Initial colonpath($1): $2"
+      eval ${!envvar}="'$2'"
+      hadoop_debug "Initial colonpath($envvar): $2"
     elif [[ "$3" = "before" ]]; then
       # shellcheck disable=SC2086
-      eval $1="'$2:${!1}'"
-      hadoop_debug "Prepend colonpath($1): $2"
+      eval ${!envvar}="'$2:${envvar}'"
+      hadoop_debug "Prepend colonpath($envvar): $2"
     else
       # shellcheck disable=SC2086
-      eval $1+=":'$2'"
-      hadoop_debug "Append colonpath($1): $2"
+      eval ${!envvar}+=":'$2'"
+      hadoop_debug "Append colonpath($envvar): $2"
     fi
     return 0
   fi
-  hadoop_debug "Rejected colonpath($1): $2"
+  hadoop_debug "Rejected colonpath($envvar): $2"
   return 1
 }
 
@@ -1358,7 +1375,7 @@ function hadoop_add_to_classpath_userpath
   # set env-var HADOOP_USER_CLASSPATH_FIRST
   # we'll also dedupe it, because we're cool like that.
   #
-  declare -a array
+  set -A array
   declare -i c=0
   declare -i j
   declare -i i
@@ -1376,12 +1393,14 @@ function hadoop_add_to_classpath_userpath
 
     if [[ -z "${HADOOP_USE_CLIENT_CLASSLOADER}" ]]; then
       if [[ -z "${HADOOP_USER_CLASSPATH_FIRST}" ]]; then
-        for ((i=0; i<=j; i++)); do
-          hadoop_add_classpath "${array[$i]}" after
+        iterator=$(( 0 ))
+        while [ "$(( iterator++ ))" -le j ]; do
+          hadoop_add_classpath "${array[$iterator]}" after
         done
       else
-        for ((i=j; i>=0; i--)); do
-          hadoop_add_classpath "${array[$i]}" before
+        iterator=$(( 0 ))
+        while [ "$(( iterator-- ))" -eq j ]; do
+          hadoop_add_classpath "${array[$iterator]}" before
         done
       fi
     fi
@@ -1491,7 +1510,7 @@ function hadoop_finalize_libpaths
 function hadoop_finalize_hadoop_heap
 {
   if [[ -n "${HADOOP_HEAPSIZE_MAX}" ]]; then
-    if [[ "${HADOOP_HEAPSIZE_MAX}" =~ ^[0-9]+$ ]]; then
+    if [[ "${HADOOP_HEAPSIZE_MAX}" = *@^[0-9]+$* ]]; then
       HADOOP_HEAPSIZE_MAX="${HADOOP_HEAPSIZE_MAX}m"
     fi
     hadoop_add_param HADOOP_OPTS Xmx "-Xmx${HADOOP_HEAPSIZE_MAX}"
@@ -1499,14 +1518,14 @@ function hadoop_finalize_hadoop_heap
 
   # backwards compatibility
   if [[ -n "${HADOOP_HEAPSIZE}" ]]; then
-    if [[ "${HADOOP_HEAPSIZE}" =~ ^[0-9]+$ ]]; then
+    if [[ "${HADOOP_HEAPSIZE}" = *@^[0-9]+$* ]]; then
       HADOOP_HEAPSIZE="${HADOOP_HEAPSIZE}m"
     fi
     hadoop_add_param HADOOP_OPTS Xmx "-Xmx${HADOOP_HEAPSIZE}"
   fi
 
   if [[ -n "${HADOOP_HEAPSIZE_MIN}" ]]; then
-    if [[ "${HADOOP_HEAPSIZE_MIN}" =~ ^[0-9]+$ ]]; then
+    if [[ "${HADOOP_HEAPSIZE_MIN}" = *@^[0-9]+$* ]]; then
       HADOOP_HEAPSIZE_MIN="${HADOOP_HEAPSIZE_MIN}m"
     fi
     hadoop_add_param HADOOP_OPTS Xms "-Xms${HADOOP_HEAPSIZE_MIN}"
@@ -1619,7 +1638,7 @@ function hadoop_exit_with_usage
     exitcode=1
   fi
   # shellcheck disable=SC2034
-  if declare -F hadoop_usage >/dev/null ; then
+  if declare -f hadoop_usage >/dev/null ; then
     hadoop_usage
   elif [[ -x /usr/bin/cowsay ]]; then
     /usr/bin/cowsay -f elephant "Sorry, no help available."
@@ -2049,7 +2068,8 @@ function wait_process_to_die_or_timeout
   fi
 
   # Wait to see if it's still alive
-  for (( i=0; i < "${timeout}"; i++ ))
+  iterator = $(( 0 ))
+  while [ "$(( iterator++ ))" -le "${timeout}" ]
   do
     if kill -0 "${pid}" > /dev/null 2>&1; then
       sleep 1
@@ -2329,7 +2349,7 @@ function hadoop_build_custom_subcmd_var
 ## @return       1 for failure
 function hadoop_verify_user_resolves
 {
-  declare userstr=$1
+  nameref userstr=$1
 
   if [[ -z ${userstr} || -z ${!userstr} ]] ; then
     return 1
@@ -2349,14 +2369,13 @@ function hadoop_verify_user_resolves
 ## @return       exit 1 on failure
 function hadoop_verify_user_perm
 {
-  declare program=$1
-  declare command=$2
-  declare uvar
+  nameref program=$1
+  nameref command=$2
 
-  uvar=$(hadoop_build_custom_subcmd_var "${program}" "${command}" USER)
-
-  if [[ -n ${!uvar} ]]; then
-    if [[ ${!uvar} !=  "${USER}" ]]; then
+  nameref uvar=$(hadoop_build_custom_subcmd_var "${program}" "${command}" USER)
+  
+  if [[ -n ${uvar} ]]; then
+    if [[ ${uvar} !=  "$(whoami)" ]]; then
       hadoop_error "ERROR: ${command} can only be executed by ${!uvar}."
       exit 1
     fi
@@ -2376,8 +2395,7 @@ function hadoop_need_reexec
 {
   declare program=$1
   declare command=$2
-  declare uvar
-
+  
   # we've already been re-execed, bail
 
   if [[ "${HADOOP_REEXECED_CMD}" = true ]]; then
@@ -2389,7 +2407,7 @@ function hadoop_need_reexec
   # otherwise no, don't re-exec and let the system deal with it.
 
   if hadoop_privilege_check; then
-    uvar=$(hadoop_build_custom_subcmd_var "${program}" "${command}" USER)
+    nameref uvar=$(hadoop_build_custom_subcmd_var "${program}" "${command}" USER)
     if [[ -n ${!uvar} ]]; then
       if [[ ${!uvar} !=  "${USER}" ]]; then
         return 0
@@ -2409,8 +2427,8 @@ function hadoop_need_reexec
 ## @return       will exit on failure conditions
 function hadoop_subcommand_opts
 {
-  declare program=$1
-  declare command=$2
+  nameref program=$1
+  nameref command=$2
   declare uvar
   declare depvar
   declare uprogram
@@ -2469,7 +2487,7 @@ function hadoop_subcommand_secure_opts
 {
   declare program=$1
   declare command=$2
-  declare uvar
+  nameref uvar
   declare uprogram
   declare ucommand
 
@@ -2554,7 +2572,7 @@ function hadoop_parse_args
         shift
         ((HADOOP_PARSE_COUNTER=HADOOP_PARSE_COUNTER+2))
         if [[ -z "${HADOOP_DAEMON_MODE}" || \
-          ! "${HADOOP_DAEMON_MODE}" =~ ^st(art|op|atus)$ ]]; then
+          ! "${HADOOP_DAEMON_MODE}" = ^st*@(art|op|atus)*$ ]]; then
           hadoop_error "ERROR: --daemon must be followed by either \"start\", \"stop\", or \"status\"."
           hadoop_exit_with_usage 1
         fi
@@ -2621,15 +2639,14 @@ function hadoop_generic_java_subcmd_handler
   declare priv_pidfile
   declare daemon_outfile
   declare daemon_pidfile
-  declare secureuser
-
+  
   # The default/expected way to determine if a daemon is going to run in secure
   # mode is defined by hadoop_detect_priv_subcmd.  If this returns true
   # then setup the secure user var and tell the world we're in secure mode
 
   if hadoop_detect_priv_subcmd "${HADOOP_SHELL_EXECNAME}" "${HADOOP_SUBCMD}"; then
     HADOOP_SUBCMD_SECURESERVICE=true
-    secureuser=$(hadoop_build_custom_subcmd_var "${HADOOP_SHELL_EXECNAME}" "${HADOOP_SUBCMD}" SECURE_USER)
+    nameref secureuser=$(hadoop_build_custom_subcmd_var "${HADOOP_SHELL_EXECNAME}" "${HADOOP_SUBCMD}" SECURE_USER)
 
     if ! hadoop_verify_user_resolves "${secureuser}"; then
       hadoop_error "ERROR: User defined in ${secureuser} (${!secureuser}) does not exist. Aborting."
@@ -2705,3 +2722,4 @@ function hadoop_generic_java_subcmd_handler
     hadoop_java_exec "${HADOOP_SUBCMD}" "${HADOOP_CLASSNAME}" "${HADOOP_SUBCMD_ARGS[@]}"
   fi
 }
+

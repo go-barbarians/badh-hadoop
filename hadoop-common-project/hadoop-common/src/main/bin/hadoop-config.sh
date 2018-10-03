@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -36,14 +35,6 @@
 # after doing more config, caller should also exec finalize
 # function to finish last minute/default configs for
 # settings that might be different between daemons & interactive
-
-# you must be this high to ride the ride
-if [[ -z "${BASH_VERSINFO[0]}" ]] \
-   || [[ "${BASH_VERSINFO[0]}" -lt 3 ]] \
-   || [[ "${BASH_VERSINFO[0]}" -eq 3 && "${BASH_VERSINFO[1]}" -lt 2 ]]; then
-  echo "bash v3.2+ is required. Sorry."
-  exit 1
-fi
 
 # In order to get partially bootstrapped, we need to figure out where
 # we are located. Chances are good that our caller has already done
@@ -133,7 +124,7 @@ hadoop_java_setup
 hadoop_basic_init
 
 # inject any sub-project overrides, defaults, etc.
-if declare -F hadoop_subproject_init >/dev/null ; then
+if declare -f hadoop_subproject_init >/dev/null ; then
   hadoop_subproject_init
 fi
 
@@ -163,3 +154,4 @@ hadoop_exec_hadooprc
 if [[ -z "${HADOOP_NEW_CONFIG}" ]]; then
   hadoop_finalize
 fi
+
