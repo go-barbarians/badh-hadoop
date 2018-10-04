@@ -390,10 +390,10 @@ function hadoop_generic_columnprinter
     ((numcols=numcols-5))
   fi
 
-  mkfifo /tmp/reader.fifo
+  mkfifo reader.fifo
   (for text in "${input[@]}"; do
     echo "${text}"
-  done | sort > /tmp/reader.fifo) &
+  done | sort > reader.fifo)
 
   while read -r line; do
     tmpa[${counter}]=${line}
@@ -403,8 +403,8 @@ function hadoop_generic_columnprinter
     if [[ ${#option} -gt ${maxoptsize} ]]; then
       maxoptsize=${#option}
     fi
-  done < /tmp/reader.fifo
-  rm -f /tmp/reader.fifo
+  done < reader.fifo
+  rm -f reader.fifo
 
   i=0
   ((foldsize=numcols-maxoptsize))
@@ -427,14 +427,14 @@ function hadoop_generic_columnprinter
       giventext=${cmdtype}
     fi
 
-    mkfifo /tmp/reader.fifo
-    (echo "${giventext}"| fold -s -w ${foldsize} > /tmp/reader.fifo) &
+    mkfifo reader.fifo
+    (echo "${giventext}"| fold -s -w ${foldsize} > reader.fifo)
 
     while read -r line; do
       printf "%-${maxoptsize}s   %-s\n" "${option}" "${line}"
       option=" "
-    done < /tmp/reader.fifo
-    rm -f /tmp/reader.fifo
+    done < reader.fifo
+    rm -f reader.fifo
     ((i=i+1))
   done
 }
@@ -851,7 +851,6 @@ function hadoop_basic_init
   # but it is important to note that if you update these
   # you also need to update hadoop-env.sh as well!!!
 
-  CLASSPATH=""
   hadoop_debug "Initialize CLASSPATH"
 
   if [[ -z "${HADOOP_COMMON_HOME}" ]] &&
