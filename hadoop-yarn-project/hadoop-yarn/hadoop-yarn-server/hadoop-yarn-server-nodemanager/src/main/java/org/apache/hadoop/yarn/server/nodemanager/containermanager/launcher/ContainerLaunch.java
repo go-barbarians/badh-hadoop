@@ -1386,7 +1386,8 @@ public class ContainerLaunch implements Callable<Integer> {
 
     @Override
     protected void link(Path src, Path dst) throws IOException {
-      line("ln -sf \"", src.toUri().getPath(), "\" \"", dst.toString(), "\"");
+      /* Barbarians 2018/10/13: our platform's ln implementation doesn't suppor the -f switch */
+      line("ln -s \"", src.toUri().getPath(), "\" \"", dst.toString(), "\"");
     }
 
     @Override
