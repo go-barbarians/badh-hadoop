@@ -1349,7 +1349,8 @@ public class ContainerLaunch implements Callable<Integer> {
 
     @Override
     public void command(List<String> command) {
-      line("exec /bin/bash -c \"", StringUtils.join(" ", command), "\"");
+      /* Barbarians 2018/10/13 force bash login shell to pickup env variables */
+      line("LD_LIBRARY_PATH=/opt/bash/usr/lib exec /bin/bash -lc \"", StringUtils.join(" ", command), "\"");
     }
 
     @Override

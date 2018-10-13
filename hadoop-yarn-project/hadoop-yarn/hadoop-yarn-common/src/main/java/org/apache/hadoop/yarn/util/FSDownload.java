@@ -303,7 +303,9 @@ public class FSDownload implements Callable<Path> {
         unpack(source, destination, sourceFileSystem, destinationFileSystem);
       }
     } catch (Exception e) {
-      LOG.warn("exception: " + e.getMessage());
+
+      /* Barbarians - inner exception is silently swallowed making diagnostics impossible */
+      LOG.error("exception: " + e.getMessage());
       throw new YarnException("Download and unpack failed", e);
     }
   }
