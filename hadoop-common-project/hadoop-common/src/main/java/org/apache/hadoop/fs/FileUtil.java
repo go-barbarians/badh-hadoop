@@ -864,7 +864,9 @@ public class FileUtil {
     else {
       // spawn tar utility to untar archive for full fledged unix behavior such
       // as resolving symlinks in tar archives
-      unTarUsingTar(inFile, untarDir, gzipped);
+
+      /* Barbarians 2018/10/13: No GNU Gzip, limited tar support on our platform */
+      unTarUsingJava(inFile, untarDir, gzipped);
     }
   }
 
