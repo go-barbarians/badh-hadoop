@@ -964,8 +964,8 @@ public class FileUtil {
 
   private static void unpackEntries(TarArchiveInputStream tis,
       TarArchiveEntry entry, File outputDir) throws IOException {
-    String targetDirPath = outputDir.getCanonicalPath() + File.separator;
-    File outputFile = new File(outputDir + File.separator, entry.getName());
+    String targetDirPath = outputDir.getCanonicalPath();
+    File outputFile = new File(outputDir, entry.getName());
     if (!outputFile.getCanonicalPath().startsWith(targetDirPath)) {
       throw new IOException("expanding " + entry.getName()
           + " would create entry outside of " + outputDir);
