@@ -484,8 +484,7 @@ public class CoreFileSystem {
     Path dependencyLibTarGzip = getDependencyTarGzip();
     LocalResource lc = createAmResource(dependencyLibTarGzip,
         LocalResourceType.ARCHIVE);
-    /* Barbarians 2018/10/14: bug dependencies tar.gz is symlinked as a directory not a file */
-    providerResources.put(YarnServiceConstants.DEPENDENCY_LOCALIZED_DIR_LINK + "/service-dependencies.tar.gz", lc);
+    providerResources.put(YarnServiceConstants.DEPENDENCY_LOCALIZED_DIR_LINK, lc);
   }
 
   public void copyLocalFileToHdfs(File localPath,
